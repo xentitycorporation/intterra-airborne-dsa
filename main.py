@@ -13,11 +13,11 @@ import time
 import re
 import settings
 from signal import signal, SIGINT
-s3 = boto3.client('s3')
+s3 = boto3.client('s3') # TODO: pass keys from json config (optionally)
 
 def run():
     # init 
-    bucket = settings.BUCKET
+    bucket = settings.BUCKET # TODO: Convert to persistant .json config
     now = datetime.utcnow()
     dir_path = os.path.dirname(os.path.realpath(__file__))
     welcome()
@@ -30,7 +30,7 @@ def run():
     else:
         answer = ''
         while answer != 'yes' and answer != 'no':
-            print(f'Use current mission (yes/no): "{mission_name}" from {mission_timestamp.ctime()}?', end=' ')
+            print(f'Use current mission (yes/no): "{mission_name}" from {mission_timestamp.ctime()}?')
             answer = sys.stdin.readline().rstrip('\n').rstrip('\n')
         if answer == 'no':
             mission_name = get_mission_from_input()
@@ -49,7 +49,7 @@ def run():
 def get_mission_from_input():
     name = ''
     while not re.match(r'^[0-9a-z]+$', name, re.IGNORECASE):
-        print('Please enter mission name (alphanumeric): ', end='')
+        print('Please enter mission name (alphanumeric): ')
         name = sys.stdin.readline().rstrip('\n').rstrip('\n')
     return name
 
