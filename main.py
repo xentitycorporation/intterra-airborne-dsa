@@ -13,11 +13,12 @@ import time
 import re
 import settings
 from signal import signal, SIGINT
-s3 = boto3.client('s3') # TODO: pass keys from json config (optionally)
+s3 = boto3.client('s3')  # TODO: pass keys from json config (optionally)
+
 
 def run():
-    # init 
-    bucket = settings.BUCKET # TODO: Convert to persistant .json config
+    # init
+    bucket = settings.BUCKET  # TODO: Convert to persistant .json config
     now = datetime.utcnow()
     dir_path = os.path.dirname(os.path.realpath(__file__))
     welcome()
@@ -30,15 +31,17 @@ def run():
     else:
         answer = ''
         while answer != 'yes' and answer != 'no':
-            print(f'Use current mission (yes/no): "{mission_name}" from {mission_timestamp.ctime()}?')
+            print(
+                f'Use current mission (yes/no): "{mission_name}" from {mission_timestamp.ctime()}?')
             answer = sys.stdin.readline().rstrip('\n').rstrip('\n')
         if answer == 'no':
             mission_name = get_mission_from_input()
             os.remove(mission_file_path)
             create_mission(mission_name, bucket)
-    
+
     # listen for files
-    print(f'Listening for files in mission "{mission_name}" at {now.ctime()} UTC in bucket "{bucket}"...')
+    print(
+        f'Listening for files in mission "{mission_name}" at {now.ctime()} UTC in bucket "{bucket}"...')
     print('(CTRL + C to exit)')
     while True:
         upload_kmls(mission_name, dir_path, bucket)
@@ -53,6 +56,7 @@ def get_mission_from_input():
         name = sys.stdin.readline().rstrip('\n').rstrip('\n')
     return name
 
+
 def create_mission(mission_name, bucket):
     # create mission
     now = datetime.utcnow()
@@ -64,15 +68,19 @@ def create_mission(mission_name, bucket):
     s3.upload_file(mission_path, bucket, f'MISSION/{mission_file_name}')
     time.sleep(1)
 
+
 def find_mission():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     for file_path in glob.iglob(f'{dir_path}/*.txt', recursive=False):
         file_name = os.path.basename(file_path)
-        m = re.match(r'([a-z0-9]+)_([0-9]{8})_([0-9]{4})z\.txt', file_name, re.IGNORECASE)
+        m = re.match(
+            r'([a-z0-9]+)_([0-9]{8})_([0-9]{4})z\.txt', file_name, re.IGNORECASE)
         if m != None:
-            mission_timestamp = datetime.strptime(f'{m.group(2)}{m.group(3)}', '%Y%m%d%H%M')
+            mission_timestamp = datetime.strptime(
+                f'{m.group(2)}{m.group(3)}', '%Y%m%d%H%M')
             return (m.group(1), mission_timestamp, file_name)
     return None, None, None
+
 
 def upload_kmls(mission_name, path, bucket):
     # find KMLs (eg: 20200831_193612Z_Crawl1_IntenseHeat.kml)
@@ -83,11 +91,12 @@ def upload_kmls(mission_name, path, bucket):
         print(f'Uploading {file_path} to {new_obj}...')
 
         # Strip points with regex
-        with open(file_path, 'w+') as f:
+        with open(file_path, 'r+') as f:
             contents = f.read()
-            modified_contents = re.sub(
-                r'<Point>[-.\n\t<>a-z0-9,\/]+<\/Point>', '', contents, flags=re.MULTILINE)
-            f.write(modified_contents)
+            with open(file_path, 'w') as f:
+                modified_contents = re.sub(
+                    r'<Point>[-.\n\t<>a-z0-9,\/]+<\/Point>', '', contents, flags=re.MULTILINE)
+                f.write(modified_contents)
 
         s3.upload_file(file_path, bucket, new_obj)
         os.remove(file_path)
@@ -115,6 +124,7 @@ def upload_tifs(mission_name, path, bucket):
         print('done!')
         time.sleep(1)
 
+
 def welcome():
     print("   _____  .__      ___.                                ________    _________   _____   ")
     print("  /  _  \\ |__|_____\\_ |__   ___________  ____   ____   \\______ \\  /   _____/  /  _  \\  ")
@@ -129,6 +139,7 @@ def welcome():
 def handler(signal_received, frame):
     print('Goodbye!')
     sys.exit(0)
+
 
 if __name__ == "__main__":
     signal(SIGINT, handler)
