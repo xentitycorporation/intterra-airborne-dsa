@@ -7,6 +7,7 @@ import glob
 import os
 import time
 import re
+from typing import Tuple
 import boto3
 
 from airborne_dsa.config_manager import ConfigManager
@@ -14,12 +15,8 @@ from airborne_dsa.config_manager import ConfigManager
 s3 = boto3.client("s3")  # TODO: pass keys from json config (optionally)
 
 
-def main() -> None:
-    """Entry point"""
-
-    # Setup
-    root_directory = os.path.dirname(os.path.realpath(__file__))
-    config = ConfigManager(root_directory + "/config.json")
+def get_mission_details() -> Tuple[str, datetime]:
+    """Get mission name and time from input"""
 
     RESET = "\033[0m"  # Reset all formatting
     GREEN = "\033[92m"  # Green text
@@ -27,18 +24,24 @@ def main() -> None:
     print(f"{GREEN}Enter Mission Name:{RESET}")
     mission_name = input().replace(" ", "")
     print()
-    print(f"{GREEN}Enter time (format: YYYY-MM-DD_HH:MM) [default now]:{RESET}")
+    print(f"{GREEN}Enter time (format: YYYY-MM-DD HH:MM:SS) [default now]:{RESET}")
     try:
-        mission_time_input = input()
-        if mission_time_input:
-            mission_time = datetime.strptime(mission_time_input, "%Y-%m-%d_%H:%M")
-        else:
-            mission_time = datetime.now()
+        mission_time = datetime.now().replace(microsecond=0)
+        if mission_time_input := input():
+            mission_time = datetime.strptime(mission_time_input, "%Y-%m-%d_%H:%M:%S")
+
     except ValueError:
         print("Invalid datetime provided")
         sys.exit(1)
     print()
 
+    return mission_name, mission_time
+
+
+def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> None:
+    """Create mission folder scaffolding for upload"""
+
+    root_directory = os.path.dirname(os.path.realpath(__file__))
     try:
         Path(f"{root_directory}/missions").mkdir()
     except FileExistsError:
@@ -51,9 +54,14 @@ def main() -> None:
     except FileExistsError:
         pass
 
-    # bucket = config.bucket
-    # now = datetime.utcnow()
-    # dir_path = os.path.dirname(os.path.realpath(__file__))
+
+def main() -> None:
+    """Entry point"""
+
+    mission_name, mission_time = get_mission_details()
+    create_mission_scaffolding(mission_name, mission_time)
+
+    # config = ConfigManager(root_directory + "/config.json")
 
     # # Get current working directory (CWD) and mission name from args
     # mission_name, mission_timestamp, mission_file_path = find_mission()
