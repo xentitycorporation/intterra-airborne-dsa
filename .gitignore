@@ -138,3 +138,6 @@ dmypy.json
 cython_debug/
 
 *.txt
+
+# Custom
+airborne_dsa/missions

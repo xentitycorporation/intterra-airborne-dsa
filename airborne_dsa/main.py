@@ -1,6 +1,7 @@
 """Main file"""
 
 from datetime import datetime
+from pathlib import Path
 import sys
 import glob
 import os
@@ -19,9 +20,40 @@ def main() -> None:
     # Setup
     root_directory = os.path.dirname(os.path.realpath(__file__))
     config = ConfigManager(root_directory + "/config.json")
-    bucket = config.bucket
-    now = datetime.utcnow()
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    RESET = "\033[0m"  # Reset all formatting
+    GREEN = "\033[92m"  # Green text
+
+    print(f"{GREEN}Enter Mission Name:{RESET}")
+    mission_name = input().replace(" ", "")
+    print()
+    print(f"{GREEN}Enter time (format: YYYY-MM-DD_HH:MM) [default now]:{RESET}")
+    try:
+        mission_time_input = input()
+        if mission_time_input:
+            mission_time = datetime.strptime(mission_time_input, "%Y-%m-%d_%H:%M")
+        else:
+            mission_time = datetime.now()
+    except ValueError:
+        print("Invalid datetime provided")
+        sys.exit(1)
+    print()
+
+    try:
+        Path(f"{root_directory}/missions").mkdir()
+    except FileExistsError:
+        pass
+
+    try:
+        Path(
+            f"{root_directory}/missions/{mission_name}_{mission_time.isoformat()}"
+        ).mkdir()
+    except FileExistsError:
+        pass
+
+    # bucket = config.bucket
+    # now = datetime.utcnow()
+    # dir_path = os.path.dirname(os.path.realpath(__file__))
 
     # # Get current working directory (CWD) and mission name from args
     # mission_name, mission_timestamp, mission_file_path = find_mission()
