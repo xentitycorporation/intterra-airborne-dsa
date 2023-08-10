@@ -59,8 +59,16 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> Non
         f"{root_directory}/missions/{mission_name}_{mission_time.isoformat()}"
     )
     mkdir_ignore_file_exist(mission_base_path)
+
     mkdir_ignore_file_exist(f"{mission_base_path}/images")
+    mkdir_ignore_file_exist(f"{mission_base_path}/images/IR")
+    mkdir_ignore_file_exist(f"{mission_base_path}/images/EO")
+
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/DPS")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/HeatPerim")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IsolatedHeat")
+
     mkdir_ignore_file_exist(f"{mission_base_path}/videos")
 
 
