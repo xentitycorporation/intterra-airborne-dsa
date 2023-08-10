@@ -1,6 +1,6 @@
 """Main file"""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 import glob
@@ -24,11 +24,15 @@ def get_mission_details() -> Tuple[str, datetime]:
     print(f"{GREEN}Enter Mission Name:{RESET}")
     mission_name = input().replace(" ", "")
     print()
-    print(f"{GREEN}Enter time (format: YYYY-MM-DD HH:MM:SS) [default now]:{RESET}")
+    print(
+        f"{GREEN}Enter local time (format: YYYY-MM-DD HH:MM:SS) [default now]:{RESET}"
+    )
     try:
-        mission_time = datetime.now().replace(microsecond=0)
+        mission_time = datetime.now().replace(microsecond=0).astimezone(timezone.utc)
         if mission_time_input := input():
-            mission_time = datetime.strptime(mission_time_input, "%Y-%m-%d_%H:%M:%S")
+            mission_time = datetime.strptime(
+                mission_time_input, "%Y-%m-%d %H:%M:%S"
+            ).astimezone(timezone.utc)
 
     except ValueError:
         print("Invalid datetime provided")
@@ -38,21 +42,26 @@ def get_mission_details() -> Tuple[str, datetime]:
     return mission_name, mission_time
 
 
+def mkdir_ignore_file_exist(file_path: str) -> None:
+    """Creates a directory using a file path and ignores FileExistsError"""
+    try:
+        Path(file_path).mkdir()
+    except FileExistsError:
+        pass
+
+
 def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> None:
     """Create mission folder scaffolding for upload"""
 
     root_directory = os.path.dirname(os.path.realpath(__file__))
-    try:
-        Path(f"{root_directory}/missions").mkdir()
-    except FileExistsError:
-        pass
-
-    try:
-        Path(
-            f"{root_directory}/missions/{mission_name}_{mission_time.isoformat()}"
-        ).mkdir()
-    except FileExistsError:
-        pass
+    mkdir_ignore_file_exist(f"{root_directory}/missions")
+    mission_base_path = (
+        f"{root_directory}/missions/{mission_name}_{mission_time.isoformat()}"
+    )
+    mkdir_ignore_file_exist(mission_base_path)
+    mkdir_ignore_file_exist(f"{mission_base_path}/images")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical")
+    mkdir_ignore_file_exist(f"{mission_base_path}/videos")
 
 
 def main() -> None:

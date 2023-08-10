@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import unittest
 from unittest.mock import patch
 
@@ -10,7 +10,7 @@ class TestMain(unittest.TestCase):
         now = datetime.now().replace(microsecond=0)
         with patch(
             "builtins.input",
-            side_effect=["Buckwheat Ridge", now.strftime("%Y-%m-%d_%H:%M:%S")],
+            side_effect=["Buckwheat Ridge", now.strftime("%Y-%m-%d %H:%M:%S")],
         ):
             mission_name, mission_time = get_mission_details()
             self.assertEqual(mission_name, "BuckwheatRidge")
