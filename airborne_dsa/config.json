@@ -1,3 +1,5 @@
 {
-  "bucket": "devsnccostate"
+  "bucket": "devsnccostate",
+  "awsAccessKeyId": "",
+  "awsSecretAccessKey": ""
 }
