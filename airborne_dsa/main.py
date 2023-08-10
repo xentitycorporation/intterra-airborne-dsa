@@ -3,16 +3,10 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
-import glob
 import os
-import time
-import re
 from typing import Tuple
-import boto3
 
-from airborne_dsa.config_manager import ConfigManager
-
-s3 = boto3.client("s3")  # TODO: pass keys from json config (optionally)
+# from airborne_dsa.config_manager import ConfigManager
 
 
 def get_mission_details() -> Tuple[str, datetime]:
