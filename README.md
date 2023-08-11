@@ -22,4 +22,4 @@ Data shipping script for airborne products
 
 ## Generating build
 
-- `pyinstaller main.py`
+- `pyinstaller airborne_dsa/main.py --onefile`
