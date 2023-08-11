@@ -8,6 +8,13 @@ from typing import Tuple
 
 # from airborne_dsa.config_manager import ConfigManager
 
+# If running from executable file, path is determined differently
+root_directory = os.path.dirname(
+    os.path.realpath(sys.executable)
+    if getattr(sys, "frozen", False)
+    else os.path.realpath(__file__)
+)
+
 
 def get_mission_details() -> Tuple[str, datetime]:
     """Get mission name and time from input"""
@@ -47,7 +54,6 @@ def mkdir_ignore_file_exist(file_path: str) -> None:
 def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> None:
     """Create mission folder scaffolding for upload"""
 
-    root_directory = os.path.dirname(os.path.realpath(__file__))
     mkdir_ignore_file_exist(f"{root_directory}/missions")
     mission_base_path = (
         f"{root_directory}/missions/{mission_name}_{mission_time.isoformat()}"
