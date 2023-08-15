@@ -17,9 +17,9 @@ Data shipping script for airborne products
 ## Getting started
 
 - `source env/bin/activate`
-- `pip3 install .`
-- `python3 airborne_dsa/main.py`
+- `pip3 install -e .`
+- `python3 main.py`
 
 ## Generating build
 
-- `pyinstaller airborne_dsa/main.py --onefile`
+- `pyinstaller main.py --onefile`

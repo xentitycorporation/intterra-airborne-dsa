@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import unittest
 from unittest.mock import patch
 
-from airborne_dsa.main import get_mission_details
+from main import get_mission_details
 
 
 class TestMain(unittest.TestCase):

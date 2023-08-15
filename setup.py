@@ -7,5 +7,9 @@ setup(
     author="Intterra",
     author_email="devs@intterragroup.com",
     packages=find_packages(),  # same as name
-    install_requires=["boto3", "jsonschema"],  # external packages as dependencies
+    install_requires=[
+        "boto3",
+        "jsonschema",
+        "watchdog",
+    ],
 )

@@ -1,7 +1,7 @@
 import unittest
 import os
 from jsonschema import ValidationError
-from airborne_dsa.config_manager import ConfigManager
+from config_manager import ConfigManager
 
 
 class TestConfig(unittest.TestCase):

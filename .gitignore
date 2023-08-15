@@ -140,5 +140,5 @@ cython_debug/
 *.txt
 
 # Custom
-airborne_dsa/missions
-airborne_dsa/config.json
+missions
+config.json
