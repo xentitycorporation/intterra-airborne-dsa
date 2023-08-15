@@ -4,7 +4,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 import sys
 import os
+import time
 from typing import Tuple
+from watchdog.observers import Observer
+
+from file_watcher import FileWatcher
 
 # from airborne_dsa.config_manager import ConfigManager
 
@@ -51,8 +55,8 @@ def mkdir_ignore_file_exist(file_path: str) -> None:
         pass
 
 
-def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> None:
-    """Create mission folder scaffolding for upload"""
+def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str:
+    """Create mission folder scaffolding for upload. Returns the mission base path"""
 
     mkdir_ignore_file_exist(f"{root_directory}/missions")
     mission_base_path = (
@@ -71,14 +75,27 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> Non
 
     mkdir_ignore_file_exist(f"{mission_base_path}/videos")
 
+    return mission_base_path
+
 
 def main() -> None:
     """Entry point"""
 
     mission_name, mission_time = get_mission_details()
-    create_mission_scaffolding(mission_name, mission_time)
+    mission_base_path = create_mission_scaffolding(mission_name, mission_time)
 
-    # TODO: Scan folders for new files
+    # Scan mission folder for new files
+    file_watcher = FileWatcher()
+    observer = Observer()
+    observer.schedule(file_watcher, mission_base_path, recursive=True)
+    observer.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
     # TODO: Create filename for corresponding file path
     # TODO: Upload to right bucket prefix
 
