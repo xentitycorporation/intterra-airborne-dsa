@@ -31,12 +31,11 @@ def get_mission_details() -> Tuple[str, datetime]:
     # Replace special characters in input with a dash
     mission_name = re.sub(r"[^a-zA-Z0-9\s-]", "-", input().replace(" ", "-"))
     print()
-    print(
-        f"{GREEN}Enter local time (format: YYYY-MM-DD HH:MM:SS) [default now]:{RESET}"
-    )
+    print(f"{GREEN}Enter local time (format: YYYY-MM-DD HH:MM) [default now]:{RESET}")
     try:
         mission_time = (
             datetime.now()
+            .replace(second=0)
             .replace(microsecond=0)
             .astimezone(timezone.utc)
             .replace(tzinfo=None)
@@ -45,7 +44,7 @@ def get_mission_details() -> Tuple[str, datetime]:
         # If input provided, use that instead of current time
         if mission_time_input := input():
             mission_time = (
-                datetime.strptime(mission_time_input, "%Y-%m-%d %H:%M:%S")
+                datetime.strptime(mission_time_input, "%Y-%m-%d %H:%M")
                 .astimezone(timezone.utc)
                 .replace(tzinfo=None)
             )
@@ -99,12 +98,13 @@ def main() -> None:
     mission_name, mission_time = get_mission_details()
     mission_base_path = create_mission_scaffolding(mission_name, mission_time)
 
-    # Scan mission folder for new files
+    # Handle new files
     def upload_product(file_path: str) -> None:
         print(file_path)
         print(mission_base_path)
         pass
 
+    # Scan mission folder for new files
     file_watcher = FileWatcher(upload_product)
     observer = Observer()
     observer.schedule(file_watcher, mission_base_path, recursive=True)

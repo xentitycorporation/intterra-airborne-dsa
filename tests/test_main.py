@@ -10,12 +10,13 @@ class TestMain(unittest.TestCase):
         now = datetime.now().replace(microsecond=0)
         with patch(
             "builtins.input",
-            side_effect=["Buckwheat Ridge", now.strftime("%Y-%m-%d %H:%M:%S")],
+            side_effect=["Buckwheat Ridge", now.strftime("%Y-%m-%d %H:%M")],
         ):
             mission_name, mission_time = get_mission_details()
             self.assertEqual(mission_name, "Buckwheat-Ridge")
             self.assertEqual(
-                mission_time, now.astimezone(timezone.utc).replace(tzinfo=None)
+                mission_time,
+                now.astimezone(timezone.utc).replace(second=0).replace(tzinfo=None),
             )
 
     @patch("sys.exit")
