@@ -70,7 +70,7 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str
 
     mkdir_ignore_file_exist(f"{root_directory}/missions")
     mission_base_path = (
-        f"{root_directory}/missions/{mission_name}_{mission_time.isoformat()}"
+        f"{root_directory}/missions/{mission_time.isoformat()}_{mission_name}"
     )
     mkdir_ignore_file_exist(mission_base_path)
 
