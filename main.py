@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import sys
 import os
 import time
@@ -27,7 +28,8 @@ def get_mission_details() -> Tuple[str, datetime]:
     GREEN = "\033[92m"  # Green text
 
     print(f"{GREEN}Enter Mission Name:{RESET}")
-    mission_name = input().replace(" ", "")
+    # Replace special characters in input with a dash
+    mission_name = re.sub(r"[^a-zA-Z0-9\s-]", "-", input().replace(" ", "-"))
     print()
     print(
         f"{GREEN}Enter local time (format: YYYY-MM-DD HH:MM:SS) [default now]:{RESET}"
@@ -74,8 +76,9 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str
     mkdir_ignore_file_exist(mission_base_path)
 
     mkdir_ignore_file_exist(f"{mission_base_path}/images")
-    mkdir_ignore_file_exist(f"{mission_base_path}/images/IR")
     mkdir_ignore_file_exist(f"{mission_base_path}/images/EO")
+    mkdir_ignore_file_exist(f"{mission_base_path}/images/HS")
+    mkdir_ignore_file_exist(f"{mission_base_path}/images/IR")
 
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical")
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical/Detection")
