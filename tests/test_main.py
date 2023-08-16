@@ -14,7 +14,9 @@ class TestMain(unittest.TestCase):
         ):
             mission_name, mission_time = get_mission_details()
             self.assertEqual(mission_name, "BuckwheatRidge")
-            self.assertEqual(mission_time, now.astimezone(timezone.utc))
+            self.assertEqual(
+                mission_time, now.astimezone(timezone.utc).replace(tzinfo=None)
+            )
 
     @patch("sys.exit")
     def test_get_mission_details_date_failure(self, mock_exit):

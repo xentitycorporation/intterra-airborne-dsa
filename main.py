@@ -33,11 +33,20 @@ def get_mission_details() -> Tuple[str, datetime]:
         f"{GREEN}Enter local time (format: YYYY-MM-DD HH:MM:SS) [default now]:{RESET}"
     )
     try:
-        mission_time = datetime.now().replace(microsecond=0).astimezone(timezone.utc)
+        mission_time = (
+            datetime.now()
+            .replace(microsecond=0)
+            .astimezone(timezone.utc)
+            .replace(tzinfo=None)
+        )
+
+        # If input provided, use that instead of current time
         if mission_time_input := input():
-            mission_time = datetime.strptime(
-                mission_time_input, "%Y-%m-%d %H:%M:%S"
-            ).astimezone(timezone.utc)
+            mission_time = (
+                datetime.strptime(mission_time_input, "%Y-%m-%d %H:%M:%S")
+                .astimezone(timezone.utc)
+                .replace(tzinfo=None)
+            )
 
     except ValueError:
         print("Invalid datetime provided")
@@ -69,9 +78,12 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str
     mkdir_ignore_file_exist(f"{mission_base_path}/images/EO")
 
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/Detection")
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical/DPS")
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical/HeatPerim")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IntenseHeat")
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IsolatedHeat")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/ScatteredHeat")
 
     mkdir_ignore_file_exist(f"{mission_base_path}/videos")
 
@@ -85,10 +97,17 @@ def main() -> None:
     mission_base_path = create_mission_scaffolding(mission_name, mission_time)
 
     # Scan mission folder for new files
-    file_watcher = FileWatcher()
+    def upload_product(file_path: str) -> None:
+        print(file_path)
+        print(mission_base_path)
+        pass
+
+    file_watcher = FileWatcher(upload_product)
     observer = Observer()
     observer.schedule(file_watcher, mission_base_path, recursive=True)
     observer.start()
+
+    print(f"Watching for new files in ${mission_base_path}")
 
     try:
         while True:
@@ -96,8 +115,6 @@ def main() -> None:
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
-    # TODO: Create filename for corresponding file path
-    # TODO: Upload to right bucket prefix
 
 
 if __name__ == "__main__":
