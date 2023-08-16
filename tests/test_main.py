@@ -13,7 +13,7 @@ class TestMain(unittest.TestCase):
             side_effect=["Buckwheat Ridge", now.strftime("%Y-%m-%d %H:%M:%S")],
         ):
             mission_name, mission_time = get_mission_details()
-            self.assertEqual(mission_name, "BuckwheatRidge")
+            self.assertEqual(mission_name, "Buckwheat-Ridge")
             self.assertEqual(
                 mission_time, now.astimezone(timezone.utc).replace(tzinfo=None)
             )
