@@ -1,7 +1,8 @@
 import unittest
 import os
 from jsonschema import ValidationError
-from config_manager import ConfigManager
+
+from services.config_manager import ConfigManager
 
 
 class TestConfig(unittest.TestCase):
