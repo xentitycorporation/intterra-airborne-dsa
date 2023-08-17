@@ -220,4 +220,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        log_file = open("ERROR.txt", "w")
+        log_file.write(str(error))
+        log_file.close()
