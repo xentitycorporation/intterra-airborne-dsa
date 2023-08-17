@@ -72,9 +72,7 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str
     """Create mission folder scaffolding for upload. Returns the mission base path"""
 
     mkdir_ignore_file_exist(f"{root_directory}/missions")
-    mission_base_path = (
-        f"{root_directory}/missions/{mission_time.isoformat()[:-3]}_{mission_name}"
-    )
+    mission_base_path = f"{root_directory}/missions/{mission_time.isoformat()[:-3].replace(':', '')}_{mission_name}"
     mkdir_ignore_file_exist(mission_base_path)
 
     mkdir_ignore_file_exist(f"{mission_base_path}/images")
@@ -102,11 +100,6 @@ def create_product_from_file_path(file_path: str) -> Product:
     last_modified_on = datetime.fromtimestamp(os.path.getctime(file_path)).astimezone(
         timezone.utc
     )
-    print(datetime.fromtimestamp(os.path.getctime(file_path)))
-    print(datetime.fromtimestamp(os.stat(file_path).st_ctime))
-    print(datetime.fromtimestamp(os.path.getmtime(file_path)))
-    print(datetime.fromtimestamp(os.stat(file_path).st_mtime))
-    print(datetime.fromtimestamp(os.stat(file_path).st_mtime))
 
     if "images" in file_path:
         if "EO" in file_path:
