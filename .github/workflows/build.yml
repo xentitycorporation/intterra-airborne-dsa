@@ -31,6 +31,6 @@ jobs:
         uses: svenstaro/upload-release-action@2.7.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/airborne-dsa.exe
+          file: dist/airborne-dsa.exe
           asset_name: airborne-dsa-windows-amd64
           tag: ${{ github.ref }}
