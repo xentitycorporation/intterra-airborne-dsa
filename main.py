@@ -151,7 +151,7 @@ def get_product_s3_key(mission_name: str, product: Product, file_extension: str)
         folder = "VIDEO"
         product_subtype = "Video"
 
-    return f"{folder}/{product.timestamp.strftime('%Y%m%d_%H%MZ')}_{mission_name}_{product_subtype}{file_extension}"
+    return f"{folder}/{product.timestamp.strftime('%Y%m%d_%H%M%SZ')}_{mission_name}_{product_subtype}{file_extension}"
 
 
 def main() -> None:
