@@ -97,7 +97,7 @@ def create_product_from_file_path(file_path: str) -> Product:
     """Takes in a file path and returns a Product"""
 
     product = None
-    last_modified_on = datetime.fromtimestamp(os.path.getctime(file_path)).astimezone(
+    last_modified_on = datetime.fromtimestamp(os.path.getmtime(file_path)).astimezone(
         timezone.utc
     )
 
@@ -151,8 +151,6 @@ def get_product_s3_key(mission_name: str, product: Product, file_extension: str)
         folder = "VIDEO"
         product_subtype = "Video"
 
-    print(product.timestamp)
-
     return f"{folder}/{product.timestamp.strftime('%Y%m%d_%H%MZ')}_{mission_name}_{product_subtype}{file_extension}"
 
 
@@ -187,7 +185,7 @@ def main() -> None:
             )
 
             print(f"Uploading {os.path.basename(file_path)}")
-            # s3_client.upload_file(file_path, key)
+            s3_client.upload_file(file_path, key)
             print(
                 f"Successfully uploaded {os.path.basename(file_path)} as {key} to {config.bucket}"
             )
