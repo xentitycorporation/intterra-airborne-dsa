@@ -8,8 +8,11 @@ import os
 import time
 from typing import Tuple
 from watchdog.observers import Observer
+from models.product import Product
+from services.config_manager import ConfigManager
 
-from file_watcher import FileWatcher
+from services.file_watcher import FileWatcher
+from services.s3_file_manager import S3FileManager
 
 # from airborne_dsa.config_manager import ConfigManager
 
@@ -70,7 +73,7 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str
 
     mkdir_ignore_file_exist(f"{root_directory}/missions")
     mission_base_path = (
-        f"{root_directory}/missions/{mission_time.isoformat()}_{mission_name}"
+        f"{root_directory}/missions/{mission_time.isoformat()[:-3]}_{mission_name}"
     )
     mkdir_ignore_file_exist(mission_base_path)
 
@@ -92,17 +95,112 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str
     return mission_base_path
 
 
+def create_product_from_file_path(file_path: str) -> Product:
+    """Takes in a file path and returns a Product"""
+
+    product = None
+    last_modified_on = datetime.fromtimestamp(os.path.getctime(file_path)).astimezone(
+        timezone.utc
+    )
+    print(datetime.fromtimestamp(os.path.getctime(file_path)))
+    print(datetime.fromtimestamp(os.stat(file_path).st_ctime))
+    print(datetime.fromtimestamp(os.path.getmtime(file_path)))
+    print(datetime.fromtimestamp(os.stat(file_path).st_mtime))
+    print(datetime.fromtimestamp(os.stat(file_path).st_mtime))
+
+    if "images" in file_path:
+        if "EO" in file_path:
+            product = Product("image", "EO", last_modified_on)
+        if "HS" in file_path:
+            product = Product("image", "HS", last_modified_on)
+        if "IR" in file_path:
+            product = Product("image", "IR", last_modified_on)
+    elif "tactical" in file_path:
+        if "Detection" in file_path:
+            product = Product("tactical", "Detection", last_modified_on)
+        if "DPS" in file_path:
+            product = Product("tactical", "DPS", last_modified_on)
+        if "HeatPerim" in file_path:
+            product = Product("tactical", "HeatPerim", last_modified_on)
+        if "IntenseHeat" in file_path:
+            product = Product("tactical", "IntenseHeat", last_modified_on)
+        if "IsolatedHeat" in file_path:
+            product = Product("tactical", "IsolatedHeat", last_modified_on)
+        if "ScatteredHeat" in file_path:
+            product = Product("tactical", "ScatteredHeat", last_modified_on)
+    elif "videos" in file_path:
+        product = Product("video", None, last_modified_on)
+
+    if product is None:
+        raise ValueError(f"Failed to map product: {os.path.basename(file_path)}")
+
+    return product
+
+
+def get_product_s3_key(mission_name: str, product: Product, file_extension: str) -> str:
+    folder = None
+    product_subtype = None
+
+    if product.type == "image":
+        folder = "IMAGERY"
+
+        if product.subtype == "EO":
+            product_subtype = "EOimage"
+        elif product.subtype == "HS":
+            product_subtype = "HSimage"
+        elif product.subtype == "IR":
+            product_subtype = "IRimage"
+
+    elif product.type == "tactical":
+        folder = "TACTICAL"
+        product_subtype = product.subtype
+    elif product.type == "video":
+        folder = "VIDEO"
+        product_subtype = "Video"
+
+    print(product.timestamp)
+
+    return f"{folder}/{product.timestamp.strftime('%Y%m%d_%H%MZ')}_{mission_name}_{product_subtype}{file_extension}"
+
+
 def main() -> None:
     """Entry point"""
 
+    # Setup
+    config = ConfigManager("config.json")
+    s3_client = S3FileManager(
+        config.aws_access_key_id, config.aws_secret_access_key, config.bucket
+    )
+
     mission_name, mission_time = get_mission_details()
+    # Create mission file
+    try:
+        s3_client.upload_empty_file(
+            f"MISSION/{mission_name}_{mission_time.strftime('%Y%m%d_%H%M')}Z.txt"
+        )
+        print(f"Created mission: {mission_name}")
+    except Exception as error:
+        print(f"Failed to create mission: {str(error)}")
+        sys.exit(1)
+
     mission_base_path = create_mission_scaffolding(mission_name, mission_time)
 
     # Handle new files
     def upload_product(file_path: str) -> None:
-        print(file_path)
-        print(mission_base_path)
-        pass
+        try:
+            product = create_product_from_file_path(file_path)
+            key = get_product_s3_key(
+                mission_name, product, os.path.splitext(file_path)[1]
+            )
+
+            print(f"Uploading {os.path.basename(file_path)}")
+            # s3_client.upload_file(file_path, key)
+            print(
+                f"Successfully uploaded {os.path.basename(file_path)} as {key} to {config.bucket}"
+            )
+
+        except Exception as error:
+            print(error)
 
     # Scan mission folder for new files
     file_watcher = FileWatcher(upload_product)
@@ -111,6 +209,7 @@ def main() -> None:
     observer.start()
 
     print(f"Watching for new files in ${mission_base_path}")
+    print()
 
     try:
         while True:
