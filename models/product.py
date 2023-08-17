@@ -41,3 +41,11 @@ class Product:
 
     def __str__(self) -> str:
         return f"Product(type='{self._type}', subtype='{self._subtype}', timestamp='{self._timestamp}'])"
+
+    def __eq__(self, __value: object) -> bool:
+        return (
+            isinstance(__value, Product)
+            and self._type == __value.type
+            and self._subtype == __value.subtype
+            and self._timestamp == __value.timestamp
+        )
