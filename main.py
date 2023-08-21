@@ -1,146 +1,225 @@
-#!/usr/bin/env python3
+"""Main file"""
 
-# README
-# pip install awscli
-# aws configure
-
-import boto3
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
+import re
 import sys
-import glob
 import os
 import time
-import re
-import settings
-from signal import signal, SIGINT
-s3 = boto3.client('s3')  # TODO: pass keys from json config (optionally)
+from typing import Tuple
+from watchdog.observers import Observer
+from models.product import Product
+from services.config_manager import ConfigManager
+
+from services.file_watcher import FileWatcher
+from services.local_file_manager import LocalFileManager
+from services.s3_file_manager import S3FileManager
+
+# from airborne_dsa.config_manager import ConfigManager
+
+# If running from executable file, path is determined differently
+root_directory = os.path.dirname(
+    os.path.realpath(sys.executable)
+    if getattr(sys, "frozen", False)
+    else os.path.realpath(__file__)
+)
 
 
-def run():
-    # init
-    bucket = settings.BUCKET  # TODO: Convert to persistant .json config
-    now = datetime.utcnow()
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    welcome()
+def get_mission_details() -> Tuple[str, datetime]:
+    """Get mission name and time from input"""
 
-    # Get current working directory (CWD) and mission name from args
-    mission_name, mission_timestamp, mission_file_path = find_mission()
-    if mission_name == None:
-        mission_name = get_mission_from_input()
-        create_mission(mission_name, bucket)
-    else:
-        answer = ''
-        while answer != 'yes' and answer != 'no':
+    RESET = "\033[0m"  # Reset all formatting
+    GREEN = "\033[92m"  # Green text
+
+    print(f"{GREEN}Enter Mission Name:{RESET}")
+    # Replace special characters in input with a dash
+    mission_name = re.sub(r"[^a-zA-Z0-9\s-]", "-", input().replace(" ", "-"))
+    print()
+    print(f"{GREEN}Enter local time (format: YYYY-MM-DD HH:MM) [default now]:{RESET}")
+    try:
+        mission_time = (
+            datetime.now()
+            .replace(second=0)
+            .replace(microsecond=0)
+            .astimezone(timezone.utc)
+            .replace(tzinfo=None)
+        )
+
+        # If input provided, use that instead of current time
+        if mission_time_input := input():
+            mission_time = (
+                datetime.strptime(mission_time_input, "%Y-%m-%d %H:%M")
+                .astimezone(timezone.utc)
+                .replace(tzinfo=None)
+            )
+
+    except ValueError:
+        print("Invalid datetime provided")
+        sys.exit(1)
+    print()
+
+    return mission_name, mission_time
+
+
+def mkdir_ignore_file_exist(file_path: str) -> None:
+    """Creates a directory using a file path and ignores FileExistsError"""
+    try:
+        Path(file_path).mkdir()
+    except FileExistsError:
+        pass
+
+
+def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str:
+    """Create mission folder scaffolding for upload. Returns the mission base path"""
+
+    mkdir_ignore_file_exist(f"{root_directory}/missions")
+    mission_base_path = f"{root_directory}/missions/{mission_time.isoformat()[:-3].replace(':', '')}_{mission_name}"
+    mkdir_ignore_file_exist(mission_base_path)
+
+    mkdir_ignore_file_exist(f"{mission_base_path}/images")
+    mkdir_ignore_file_exist(f"{mission_base_path}/images/EO")
+    mkdir_ignore_file_exist(f"{mission_base_path}/images/HS")
+    mkdir_ignore_file_exist(f"{mission_base_path}/images/IR")
+
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/Detection")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/DPS")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/HeatPerim")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IntenseHeat")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IsolatedHeat")
+    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/ScatteredHeat")
+
+    mkdir_ignore_file_exist(f"{mission_base_path}/videos")
+
+    return mission_base_path
+
+
+def create_product_from_file_path(file_path: str) -> Product:
+    """Takes in a file path and returns a Product"""
+
+    product = None
+    last_modified_on = datetime.fromtimestamp(os.path.getmtime(file_path)).astimezone(
+        timezone.utc
+    )
+
+    if "images" in file_path:
+        if "EO" in file_path:
+            product = Product("image", "EO", last_modified_on)
+        if "HS" in file_path:
+            product = Product("image", "HS", last_modified_on)
+        if "IR" in file_path:
+            product = Product("image", "IR", last_modified_on)
+    elif "tactical" in file_path:
+        if "Detection" in file_path:
+            product = Product("tactical", "Detection", last_modified_on)
+        if "DPS" in file_path:
+            product = Product("tactical", "DPS", last_modified_on)
+        if "HeatPerim" in file_path:
+            product = Product("tactical", "HeatPerim", last_modified_on)
+        if "IntenseHeat" in file_path:
+            product = Product("tactical", "IntenseHeat", last_modified_on)
+        if "IsolatedHeat" in file_path:
+            product = Product("tactical", "IsolatedHeat", last_modified_on)
+        if "ScatteredHeat" in file_path:
+            product = Product("tactical", "ScatteredHeat", last_modified_on)
+    elif "videos" in file_path:
+        product = Product("video", None, last_modified_on)
+
+    if product is None:
+        raise ValueError(f"Failed to map product: {os.path.basename(file_path)}")
+
+    return product
+
+
+def get_product_s3_key(mission_name: str, product: Product, file_extension: str) -> str:
+    folder = None
+    product_subtype = None
+
+    if product.type == "image":
+        folder = "IMAGERY"
+
+        if product.subtype == "EO":
+            product_subtype = "EOimage"
+        elif product.subtype == "HS":
+            product_subtype = "HSimage"
+        elif product.subtype == "IR":
+            product_subtype = "IRimage"
+
+    elif product.type == "tactical":
+        folder = "TACTICAL"
+        product_subtype = product.subtype
+    elif product.type == "video":
+        folder = "VIDEO"
+        product_subtype = "Video"
+
+    return f"{folder}/{product.timestamp.strftime('%Y%m%d_%H%M%SZ')}_{mission_name}_{product_subtype}{file_extension}"
+
+
+def main() -> None:
+    """Entry point"""
+
+    # Setup
+    config = ConfigManager("config.json")
+    file_manager = (
+        S3FileManager(
+            config.aws_access_key_id, config.aws_secret_access_key, config.bucket
+        )
+        if config.storage_mode == "remote"
+        else LocalFileManager()
+    )
+
+    mission_name, mission_time = get_mission_details()
+    # Create mission file
+    try:
+        file_manager.upload_empty_file(
+            f"MISSION/{mission_name}_{mission_time.strftime('%Y%m%d_%H%M')}Z.txt"
+        )
+        print(f"Created mission: {mission_name}")
+    except Exception as error:
+        print(f"Failed to create mission: {str(error)}")
+        sys.exit(1)
+
+    mission_base_path = create_mission_scaffolding(mission_name, mission_time)
+
+    # Handle new files
+    def upload_product(file_path: str) -> None:
+        try:
+            product = create_product_from_file_path(file_path)
+            key = get_product_s3_key(
+                mission_name, product, os.path.splitext(file_path)[1]
+            )
+
+            print(f"Uploading {os.path.basename(file_path)}")
+            file_manager.upload_file(file_path, key)
             print(
-                f'Use current mission (yes/no): "{mission_name}" from {mission_timestamp.ctime()}?')
-            answer = sys.stdin.readline().rstrip('\n').rstrip('\n')
-        if answer == 'no':
-            mission_name = get_mission_from_input()
-            os.remove(mission_file_path)
-            create_mission(mission_name, bucket)
+                f"Successfully uploaded {os.path.basename(file_path)} as {key} to {config.bucket}"
+            )
 
-    # listen for files
-    print(
-        f'Listening for files in mission "{mission_name}" at {now.ctime()} UTC in bucket "{bucket}"...')
-    print('(CTRL + C to exit)')
-    while True:
-        upload_kmls(mission_name, dir_path, bucket)
-        upload_tifs(mission_name, dir_path, bucket)
-        time.sleep(15)
+        except Exception as error:
+            print(error)
 
+    # Scan mission folder for new files
+    file_watcher = FileWatcher(upload_product)
+    observer = Observer()
+    observer.schedule(file_watcher, mission_base_path, recursive=True)
+    observer.start()
 
-def get_mission_from_input():
-    name = ''
-    while not re.match(r'^[0-9a-z]+$', name, re.IGNORECASE):
-        print('Please enter mission name (alphanumeric): ')
-        name = sys.stdin.readline().rstrip('\n').rstrip('\n')
-    return name
+    print(f"Watching for new files in ${mission_base_path}")
+    print()
 
-
-def create_mission(mission_name, bucket):
-    # create mission
-    now = datetime.utcnow()
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    mission_file_name = f'{mission_name}_{now.strftime("%Y%m%d")}_{now.strftime("%H%M")}Z.txt'
-    mission_path = f'{dir_path}/{mission_file_name}'
-    with open(mission_path, 'w+') as f:
-        f.write('')
-    s3.upload_file(mission_path, bucket, f'MISSION/{mission_file_name}')
-    time.sleep(1)
-
-
-def find_mission():
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    for file_path in glob.iglob(f'{dir_path}/*.txt', recursive=False):
-        file_name = os.path.basename(file_path)
-        m = re.match(
-            r'([a-z0-9]+)_([0-9]{8})_([0-9]{4})z\.txt', file_name, re.IGNORECASE)
-        if m != None:
-            mission_timestamp = datetime.strptime(
-                f'{m.group(2)}{m.group(3)}', '%Y%m%d%H%M')
-            return (m.group(1), mission_timestamp, file_name)
-    return None, None, None
-
-
-def upload_kmls(mission_name, path, bucket):
-    # find KMLs (eg: 20200831_193612Z_Crawl1_IntenseHeat.kml)
-    for file_path in glob.iglob(f'{path}/*.kml', recursive=False):
-
-        now = datetime.utcnow()
-        new_obj = f'TACTICAL/{now.strftime("%Y%m%d")}_{now.strftime("%H%M%S")}Z_{mission_name}_IntenseHeat.kml'
-        print(f'Uploading {file_path} to {new_obj}...')
-
-        # Strip points with regex
-        with open(file_path, 'r+') as f:
-            contents = f.read()
-            with open(file_path, 'w') as f:
-                modified_contents = re.sub(
-                    r'<Point>[-.\n\t<>a-z0-9,\/]+<\/Point>', '', contents, flags=re.MULTILINE)
-                f.write(modified_contents)
-
-        s3.upload_file(file_path, bucket, new_obj)
-        os.remove(file_path)
-        print('done!')
-        time.sleep(1)
-
-
-def upload_tifs(mission_name, path, bucket):
-    # find IRs (eg: 20200818_031612Z_Crawl1_IRimage.tif)
-    for file_path in glob.iglob(f'{path}/*.tif', recursive=False):
-        now = datetime.utcnow()
-        new_obj = f'IMAGERY/{now.strftime("%Y%m%d")}_{now.strftime("%H%M%S")}Z_{mission_name}_IRimage.tif'
-        print(f'Uploading {file_path} to {new_obj}...')
-        s3.upload_file(file_path, bucket, new_obj)
-        os.remove(file_path)
-        print('done!')
-        time.sleep(1)
-
-    for file_path in glob.iglob(f'{path}/*.tiff', recursive=False):
-        now = datetime.utcnow()
-        new_obj = f'IMAGERY/{now.strftime("%Y%m%d")}_{now.strftime("%H%M%S")}Z_{mission_name}_IRimage.tif'
-        print(f'Uploading {file_path} to {new_obj}...')
-        s3.upload_file(file_path, bucket, new_obj)
-        os.remove(file_path)
-        print('done!')
-        time.sleep(1)
-
-
-def welcome():
-    print("   _____  .__      ___.                                ________    _________   _____   ")
-    print("  /  _  \\ |__|_____\\_ |__   ___________  ____   ____   \\______ \\  /   _____/  /  _  \\  ")
-    print(" /  /_\\  \\|  \\_  __ \\ __ \\ /  _ \\_  __ \\/    \\_/ __ \\   |    |  \\ \\_____  \\  /  /_\\  \\ ")
-    print("/    |    \\  ||  | \\/ \\_\\ (  <_> )  | \\/   |  \\  ___/   |    `   \\/        \\/    |    \\")
-    print("\\____|__  /__||__|  |___  /\\____/|__|  |___|  /\\___  > /_______  /_______  /\\____|__  /")
-    print("        \\/              \\/                  \\/     \\/          \\/        \\/         \\/ ")
-    print("Airborne API Data Shipping App powered by Intterra")
-    print('\n')
-
-
-def handler(signal_received, frame):
-    print('Goodbye!')
-    sys.exit(0)
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
 
 
 if __name__ == "__main__":
-    signal(SIGINT, handler)
-    run()
+    try:
+        main()
+    except Exception as error:
+        log_file = open("ERROR.txt", "w")
+        log_file.write(str(error))
+        log_file.close()
+        print(error)

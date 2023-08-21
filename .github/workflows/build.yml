@@ -1,0 +1,36 @@
+name: Builds
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.x
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools pyinstaller
+          python -m pip install .
+
+      - name: Build executable
+        run: |
+          pyinstaller --onefile main.py -n airborne-dsa
+
+      - name: Upload executable
+        uses: svenstaro/upload-release-action@2.7.0
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: dist/airborne-dsa.exe
+          asset_name: airborne-dsa-windows-amd64.exe
+          tag: ${{ github.ref }}
