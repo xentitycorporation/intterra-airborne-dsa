@@ -20,6 +20,8 @@ Data shipping script for airborne products
 - `python3 -m pip install -e .`
 - `python3 main.py`
 
+For running locally, add "storageMode": "local" to config.json
+
 ## Generating build
 
 - `pyinstaller main.py --onefile -n airborne-dsa`

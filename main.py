@@ -12,6 +12,7 @@ from models.product import Product
 from services.config_manager import ConfigManager
 
 from services.file_watcher import FileWatcher
+from services.local_file_manager import LocalFileManager
 from services.s3_file_manager import S3FileManager
 
 # from airborne_dsa.config_manager import ConfigManager
@@ -159,14 +160,18 @@ def main() -> None:
 
     # Setup
     config = ConfigManager("config.json")
-    s3_client = S3FileManager(
-        config.aws_access_key_id, config.aws_secret_access_key, config.bucket
+    file_manager = (
+        S3FileManager(
+            config.aws_access_key_id, config.aws_secret_access_key, config.bucket
+        )
+        if config.storage_mode == "remote"
+        else LocalFileManager()
     )
 
     mission_name, mission_time = get_mission_details()
     # Create mission file
     try:
-        s3_client.upload_empty_file(
+        file_manager.upload_empty_file(
             f"MISSION/{mission_name}_{mission_time.strftime('%Y%m%d_%H%M')}Z.txt"
         )
         print(f"Created mission: {mission_name}")
@@ -185,7 +190,7 @@ def main() -> None:
             )
 
             print(f"Uploading {os.path.basename(file_path)}")
-            s3_client.upload_file(file_path, key)
+            file_manager.upload_file(file_path, key)
             print(
                 f"Successfully uploaded {os.path.basename(file_path)} as {key} to {config.bucket}"
             )
@@ -217,3 +222,4 @@ if __name__ == "__main__":
         log_file = open("ERROR.txt", "w")
         log_file.write(str(error))
         log_file.close()
+        print(error)

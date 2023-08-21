@@ -1,6 +1,7 @@
 """Loads and validates config.json file against a config json schema"""
 import locale
 import json
+from typing import Literal
 import jsonschema
 
 
@@ -14,6 +15,7 @@ class ConfigManager:
                 "bucket": {"type": "string"},
                 "awsAccessKeyId": {"type": "string"},
                 "awsSecretAccessKey": {"type": "string"},
+                "storageMode": {"type": "string", "enum": ["local", "remote"]},
             },
             "required": ["bucket", "awsAccessKeyId", "awsSecretAccessKey"],
             "additionalProperties": False,
@@ -39,3 +41,10 @@ class ConfigManager:
     def aws_secret_access_key(self) -> str:
         """Your AWS secret key"""
         return self.config["awsSecretAccessKey"]
+
+    @property
+    def storage_mode(self) -> Literal["local", "remote"]:
+        """Whether to use local or remote storage"""
+        return (
+            "remote" if "storageMode" not in self.config else self.config["storageMode"]
+        )
