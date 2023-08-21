@@ -17,7 +17,7 @@ Data shipping script for airborne products
 ## Getting started
 
 - `source env/bin/activate`
-- `python3 -m python install -e .`
+- `python3 -m pip install -e .`
 - `python3 main.py`
 
 ## Generating build
