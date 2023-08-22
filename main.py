@@ -83,7 +83,6 @@ def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str
 
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical")
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical/Detection")
-    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/DPS")
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical/HeatPerim")
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IntenseHeat")
     mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IsolatedHeat")
@@ -112,8 +111,6 @@ def create_product_from_file_path(file_path: str) -> Product:
     elif "tactical" in file_path:
         if "Detection" in file_path:
             product = Product("tactical", "Detection", last_modified_on)
-        if "DPS" in file_path:
-            product = Product("tactical", "DPS", last_modified_on)
         if "HeatPerim" in file_path:
             product = Product("tactical", "HeatPerim", last_modified_on)
         if "IntenseHeat" in file_path:
