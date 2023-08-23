@@ -13,7 +13,6 @@ class Product:
         elif type == "tactical":
             if subtype not in [
                 "Detection",
-                "DPS",
                 "HeatPerimeter",
                 "IntenseHeat",
                 "IsolatedHeat",
