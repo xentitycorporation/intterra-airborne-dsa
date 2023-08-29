@@ -101,25 +101,25 @@ def create_product_from_file_path(file_path: str) -> Product:
         timezone.utc
     )
 
-    if "images" in file_path:
-        if "EO" in file_path:
+    if "images/" in file_path:
+        if "EO/" in file_path:
             product = Product("image", "EO", last_modified_on)
-        if "HS" in file_path:
+        if "HS/" in file_path:
             product = Product("image", "HS", last_modified_on)
-        if "IR" in file_path:
+        if "IR/" in file_path:
             product = Product("image", "IR", last_modified_on)
-    elif "tactical" in file_path:
-        if "Detection" in file_path:
+    elif "tactical/" in file_path:
+        if "Detection/" in file_path:
             product = Product("tactical", "Detection", last_modified_on)
-        if "HeatPerimeter" in file_path:
+        if "HeatPerimeter/" in file_path:
             product = Product("tactical", "HeatPerimeter", last_modified_on)
-        if "IntenseHeat" in file_path:
+        if "IntenseHeat/" in file_path:
             product = Product("tactical", "IntenseHeat", last_modified_on)
-        if "IsolatedHeat" in file_path:
+        if "IsolatedHeat/" in file_path:
             product = Product("tactical", "IsolatedHeat", last_modified_on)
-        if "ScatteredHeat" in file_path:
+        if "ScatteredHeat/" in file_path:
             product = Product("tactical", "ScatteredHeat", last_modified_on)
-    elif "videos" in file_path:
+    elif "videos/" in file_path:
         product = Product("video", None, last_modified_on)
 
     if product is None:
