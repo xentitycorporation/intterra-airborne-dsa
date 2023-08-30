@@ -101,25 +101,29 @@ def create_product_from_file_path(file_path: str) -> Product:
         timezone.utc
     )
 
-    if "images/" in file_path:
-        if "EO/" in file_path:
+    folders_in_path = file_path.split(os.path.sep)
+    # We only want to check the mission path, without filename and user's path
+    mission_path = folders_in_path[folders_in_path.index("missions") + 2 : -1]
+
+    if "images" in mission_path:
+        if "EO" in mission_path:
             product = Product("image", "EO", last_modified_on)
-        if "HS/" in file_path:
+        if "HS" in mission_path:
             product = Product("image", "HS", last_modified_on)
-        if "IR/" in file_path:
+        if "IR" in mission_path:
             product = Product("image", "IR", last_modified_on)
-    elif "tactical/" in file_path:
-        if "Detection/" in file_path:
+    elif "tactical" in mission_path:
+        if "Detection" in mission_path:
             product = Product("tactical", "Detection", last_modified_on)
-        if "HeatPerimeter/" in file_path:
+        if "HeatPerimeter" in mission_path:
             product = Product("tactical", "HeatPerimeter", last_modified_on)
-        if "IntenseHeat/" in file_path:
+        if "IntenseHeat" in mission_path:
             product = Product("tactical", "IntenseHeat", last_modified_on)
-        if "IsolatedHeat/" in file_path:
+        if "IsolatedHeat" in mission_path:
             product = Product("tactical", "IsolatedHeat", last_modified_on)
-        if "ScatteredHeat/" in file_path:
+        if "ScatteredHeat" in mission_path:
             product = Product("tactical", "ScatteredHeat", last_modified_on)
-    elif "videos/" in file_path:
+    elif "videos" in mission_path:
         product = Product("video", None, last_modified_on)
 
     if product is None:
