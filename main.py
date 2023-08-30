@@ -72,25 +72,33 @@ def mkdir_ignore_file_exist(file_path: str) -> None:
 def create_mission_scaffolding(mission_name: str, mission_time: datetime) -> str:
     """Create mission folder scaffolding for upload. Returns the mission base path"""
 
-    mkdir_ignore_file_exist(f"{root_directory}/missions")
-    mission_base_path = f"{root_directory}/missions/{mission_time.isoformat()[:-3].replace(':', '')}_{mission_name}"
+    mkdir_ignore_file_exist(os.path.join(root_directory, "missions"))
+    mission_base_path = os.path.join(
+        root_directory,
+        "missions",
+        f"{mission_time.isoformat()[:-3].replace(':', '')}_{mission_name}",
+    )
     mkdir_ignore_file_exist(mission_base_path)
 
-    mkdir_ignore_file_exist(f"{mission_base_path}/images")
-    mkdir_ignore_file_exist(f"{mission_base_path}/images/EO")
-    mkdir_ignore_file_exist(f"{mission_base_path}/images/HS")
-    mkdir_ignore_file_exist(f"{mission_base_path}/images/IR")
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "images"))
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "images", "EO"))
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "images", "HS"))
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "images", "IR"))
 
-    mkdir_ignore_file_exist(f"{mission_base_path}/tactical")
-    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/Detection")
-    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/HeatPerimeter")
-    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IntenseHeat")
-    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/IsolatedHeat")
-    mkdir_ignore_file_exist(f"{mission_base_path}/tactical/ScatteredHeat")
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "tactical"))
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "tactical", "Detection"))
+    mkdir_ignore_file_exist(
+        os.path.join(mission_base_path, "tactical", "HeatPerimeter")
+    )
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "tactical", "IntenseHeat"))
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "tactical", "IsolatedHeat"))
+    mkdir_ignore_file_exist(
+        os.path.join(mission_base_path, "tactical", "ScatteredHeat")
+    )
 
-    mkdir_ignore_file_exist(f"{mission_base_path}/videos")
+    mkdir_ignore_file_exist(os.path.join(mission_base_path, "videos"))
 
-    return mission_base_path
+    return os.path.normpath(mission_base_path)
 
 
 def create_product_from_file_path(file_path: str) -> Product:
