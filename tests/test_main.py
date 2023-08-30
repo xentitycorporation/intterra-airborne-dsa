@@ -43,6 +43,21 @@ class TestMain(unittest.TestCase):
         mock_getmtime.assert_called_once_with(file_path)
 
     @patch("os.path.getmtime", return_value=1234567890.0)
+    def test_create_product_from_file_path_image_with_wrong_type_in_path(
+        self, mock_getmtime
+    ):
+        file_path = "images/EO/IRimage.tif"
+        expected_product = Product(
+            "image", "EO", datetime.fromtimestamp(1234567890.0, tz=timezone.utc)
+        )
+        created_product = create_product_from_file_path(file_path)
+        print(created_product)
+        print(expected_product)
+        self.assertEqual(created_product, expected_product)
+
+        mock_getmtime.assert_called_once_with(file_path)
+
+    @patch("os.path.getmtime", return_value=1234567890.0)
     def test_create_product_from_file_path_tactical(self, mock_getmtime):
         file_path = "tactical/Detection/some_detection.kml"
         expected_product = Product(
