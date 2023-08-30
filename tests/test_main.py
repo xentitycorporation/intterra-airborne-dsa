@@ -31,7 +31,7 @@ class TestMain(unittest.TestCase):
 
     @patch("os.path.getmtime", return_value=1234567890.0)
     def test_create_product_from_file_path_image(self, mock_getmtime):
-        file_path = "images/EO/some_image.tif"
+        file_path = "missions/name/images/EO/some_image.tif"
         expected_product = Product(
             "image", "EO", datetime.fromtimestamp(1234567890.0, tz=timezone.utc)
         )
@@ -46,7 +46,7 @@ class TestMain(unittest.TestCase):
     def test_create_product_from_file_path_image_with_wrong_type_in_path(
         self, mock_getmtime
     ):
-        file_path = "images/EO/IRimage.tif"
+        file_path = "missions/name/images/EO/IRimage.tif"
         expected_product = Product(
             "image", "EO", datetime.fromtimestamp(1234567890.0, tz=timezone.utc)
         )
@@ -59,7 +59,7 @@ class TestMain(unittest.TestCase):
 
     @patch("os.path.getmtime", return_value=1234567890.0)
     def test_create_product_from_file_path_tactical(self, mock_getmtime):
-        file_path = "tactical/Detection/some_detection.kml"
+        file_path = "missions/name/tactical/Detection/some_detection.kml"
         expected_product = Product(
             "tactical",
             "Detection",
@@ -72,7 +72,7 @@ class TestMain(unittest.TestCase):
 
     @patch("os.path.getmtime", return_value=1234567890.0)
     def test_create_product_from_file_path_video(self, mock_getmtime):
-        file_path = "videos/some_video.ts"
+        file_path = "missions/name/videos/some_video.ts"
         expected_product = Product(
             "video", None, datetime.fromtimestamp(1234567890.0, tz=timezone.utc)
         )
@@ -83,7 +83,7 @@ class TestMain(unittest.TestCase):
 
     @patch("os.path.getmtime", return_value=1234567890.0)
     def test_create_product_from_file_path_invalid(self, mock_getmtime):
-        file_path = "invalid_path/some_file.txt"
+        file_path = "missions/name/invalid_path/some_file.txt"
         with self.assertRaises(ValueError):
             create_product_from_file_path(file_path)
 
