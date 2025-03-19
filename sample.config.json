@@ -1,0 +1,6 @@
+{
+    "storageMode": "remote",
+    "bucket": "vendor_bucketname",
+    "awsAccessKeyId": "",
+    "awsSecretAccessKey": ""
+}
