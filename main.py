@@ -15,8 +15,6 @@ from services.file_watcher import FileWatcher
 from services.local_file_manager import LocalFileManager
 from services.s3_file_manager import S3FileManager
 
-# from airborne_dsa.config_manager import ConfigManager
-
 # If running from executable file, path is determined differently
 root_directory = os.path.dirname(
     os.path.realpath(sys.executable)
@@ -169,20 +167,65 @@ def main() -> None:
 
     # Setup
     config = ConfigManager("config.json")
+    
+    # Check for vendor environment variable
+    vendor_prefix = os.environ.get("vendor", "")
+    
+    # Display available accounts
+    accounts = config.get_accounts()
+    RESET = "\033[0m"  # Reset all formatting
+    GREEN = "\033[92m"  # Green text
+    
+    print(f"{GREEN}Select an account to upload data:{RESET}")
+    for i, account in enumerate(accounts):
+        print(f"{i+1}. {account['name']}")
+    
+    # Get user selection
+    selected_account_index = 0  # Default to first account
+    if len(accounts) > 1:
+        while True:
+            try:
+                selection = int(input("Enter account number: ")) - 1
+                if 0 <= selection < len(accounts):
+                    selected_account_index = selection
+                    break
+                else:
+                    print("Invalid selection. Please try again.")
+            except ValueError:
+                print("Please enter a number.")
+    
+    selected_account = accounts[selected_account_index]
+    print(f"Using account: {selected_account['name']}")
+    print()
+    
+    # Use selected account for file manager
     file_manager = (
         S3FileManager(
-            config.aws_access_key_id, config.aws_secret_access_key, config.bucket
+            selected_account.get("awsAccessKeyId"), 
+            selected_account.get("awsSecretAccessKey"), 
+            selected_account.get("bucket")
         )
-        if config.storage_mode == "remote"
+        if selected_account.get("storageMode", "remote") == "remote"
         else LocalFileManager()
     )
-
+    
     mission_name, mission_time = get_mission_details()
     # Create mission file
     try:
-        file_manager.upload_empty_file(
-            f"MISSION/{mission_name}_{mission_time.strftime('%Y%m%d_%H%M')}Z.txt"
-        )
+        mission_file_key = f"MISSION/{mission_name}_{mission_time.strftime('%Y%m%d_%H%M')}Z.txt"
+        
+        # Build the complete path with appropriate prefixes
+        # Priority: 1. vendor environment variable, 2. account path from config
+        path_prefix = ""
+        if vendor_prefix:
+            path_prefix = vendor_prefix
+        elif "path" in selected_account:
+            path_prefix = selected_account['path']
+            
+        if path_prefix:
+            mission_file_key = f"{path_prefix}/{mission_file_key}"
+        
+        file_manager.upload_empty_file(mission_file_key)
         print(f"Created mission: {mission_name}")
     except Exception as error:
         print(f"Failed to create mission: {str(error)}")
@@ -195,13 +238,22 @@ def main() -> None:
         try:
             product = create_product_from_file_path(file_path)
             key = get_product_s3_key(
-                mission_name, product, os.path.splitext(file_path)[1]
+                mission_name, 
+                product, 
+                os.path.splitext(file_path)[1]
             )
+            
+            # Build the complete path with appropriate prefixes
+            # Priority: 1. vendor environment variable, 2. account path from config
+            if vendor_prefix:
+                key = f"{vendor_prefix}/{key}"
+            elif "path" in selected_account:
+                key = f"{selected_account['path']}/{key}"
 
             print(f"Uploading {os.path.basename(file_path)}")
             file_manager.upload_file(file_path, key)
             print(
-                f"Successfully uploaded {os.path.basename(file_path)} as {key} to {config.bucket}"
+                f"Successfully uploaded {os.path.basename(file_path)} as {key} to {selected_account.get('bucket', 'local storage')}"
             )
 
         except Exception as error:
@@ -213,7 +265,7 @@ def main() -> None:
     observer.schedule(file_watcher, mission_base_path, recursive=True)
     observer.start()
 
-    print(f"Watching for new files in ${mission_base_path}")
+    print(f"Watching for new files in {mission_base_path}")
     print()
 
     try:
