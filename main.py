@@ -177,6 +177,21 @@ def main() -> None:
         else LocalFileManager()
     )
 
+    # Select account
+    print("Available Accounts:")
+    for idx, account in enumerate(config.accounts):
+        print(f"{idx + 1}: {account['name']}")
+    print("Enter the number of the account to use:")
+    try:
+        account_index = int(input()) - 1
+        if account_index < 0 or account_index >= len(config.accounts):
+            raise ValueError("Invalid account selection")
+        selected_account = config.accounts[account_index]
+        print(f"Selected Account: {selected_account['name']}")
+    except (ValueError, IndexError):
+        print("Invalid input. Exiting.")
+        sys.exit(1)
+
     mission_name, mission_time = get_mission_details()
     # Create mission file
     try:

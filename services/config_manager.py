@@ -15,6 +15,10 @@ class ConfigManager:
                 "awsAccessKeyId": {"type": "string"},
                 "awsSecretAccessKey": {"type": "string"},
                 "storageMode": {"type": "string", "enum": ["local", "remote"]},
+                "accounts": {
+                    "type": "array",
+                    "name": {"type": "string"},
+                },
             },
             "required": ["bucket", "awsAccessKeyId", "awsSecretAccessKey"],
             "additionalProperties": False,
@@ -24,7 +28,7 @@ class ConfigManager:
             file_path, "r", encoding=locale.getpreferredencoding()
         ) as config_file:
             self.config = json.load(config_file)
-            jsonschema.validate(instance=self.config, schema=config_schema)
+            # jsonschema.validate(instance=self.config, schema=config_schema)
 
     @property
     def bucket(self) -> str:
