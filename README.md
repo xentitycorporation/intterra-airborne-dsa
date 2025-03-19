@@ -8,17 +8,19 @@ Data shipping script for airborne products
 
 - Python 3 installed
 - Python 3 venv installed
-- `python3 -m venv env`
-- `source env/bin/activate`
-- `python3 -m pip install --upgrade pip setuptools pyinstaller`
+- `python -m venv env`
+- `source env/bin/activate` or `.\env\Scripts\Activate.ps1` For PowerShell
+- `python -m pip install --upgrade pip setuptools pyinstaller`
 
 ### Running locally
 
 ## Getting started
 
+- Rename sample.config to config.json
+- Edit config.json with provided information from your agency
 - `source env/bin/activate`
-- `python3 -m pip install -e .`
-- `python3 main.py`
+- `python -m pip install -e .` or `.\env\Scripts\Activate.ps1` For PowerShell
+- `python main.py`
 
 For running locally, add "storageMode": "local" to config.json
 
@@ -28,5 +30,4 @@ For running locally, add "storageMode": "local" to config.json
 
 ## Running unit tests
 
-- `python3 -m unittest`
-
+- `python -m unittest`

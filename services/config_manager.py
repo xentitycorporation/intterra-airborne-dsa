@@ -4,7 +4,6 @@ import json
 from typing import Literal
 import jsonschema
 
-
 class ConfigManager:
     """Loads and validates config.json file against a config json schema"""
 
