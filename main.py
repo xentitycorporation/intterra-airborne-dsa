@@ -1,4 +1,4 @@
-"""Main file with updated watchdog implementation"""
+"""Main file with updated watchdog implementation and support for multiple accounts and vendor prefixes"""
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -273,23 +273,24 @@ def monitor_directory(directory, callback):
         print("Stopping file monitoring")
 
 
-def main() -> None:
-    """Entry point"""
-
-    # Setup
-    config = ConfigManager("config.json")
-    
-    # Check for vendor environment variable
-    vendor_prefix = os.environ.get("vendor", "")
-    
-    # Display available accounts
-    accounts = config.get_accounts()
+def get_account_selection(accounts):
+    """Prompt user to select an account"""
     RESET = "\033[0m"  # Reset all formatting
     GREEN = "\033[92m"  # Green text
+    YELLOW = "\033[93m"  # Yellow text for warnings
+    
+    # Check if there are any accounts with proper remote storage configuration
+    remote_accounts = [a for a in accounts if a.get("storageMode", "remote") == "remote"]
+    if not remote_accounts:
+        print(f"{YELLOW}Warning: No properly configured remote accounts found in config.{RESET}")
+        print(f"{YELLOW}Files will be stored locally. Check your config.json file.{RESET}")
+        print()
     
     print(f"{GREEN}Select an account to upload data:{RESET}")
     for i, account in enumerate(accounts):
-        print(f"{i+1}. {account['name']}")
+        storage_type = "S3" if account.get("storageMode", "remote") == "remote" else "Local"
+        bucket_info = f"(Bucket: {account.get('bucket', 'N/A')})" if storage_type == "S3" else ""
+        print(f"{i+1}. {account['name']} - {storage_type} {bucket_info}")
     
     # Get user selection
     selected_account_index = 0  # Default to first account
@@ -306,40 +307,93 @@ def main() -> None:
                 print("Please enter a number.")
     
     selected_account = accounts[selected_account_index]
-    print(f"Using account: {selected_account['name']}")
+    
+    # Show detailed information about selected account
+    print(f"{GREEN}Selected account:{RESET} {selected_account['name']}")
+    storage_mode = selected_account.get("storageMode", "remote")
+    if storage_mode == "remote":
+        bucket = selected_account.get("bucket")
+        if bucket:
+            print(f"Files will be uploaded to S3 bucket: {bucket}")
+        else:
+            print(f"{YELLOW}Warning: No bucket specified for this account. Check config.json.{RESET}")
+    else:
+        print("Files will be stored locally (no S3 upload)")
     print()
     
-    # Use selected account for file manager
-    file_manager = (
-        S3FileManager(
-            selected_account.get("awsAccessKeyId"), 
-            selected_account.get("awsSecretAccessKey"), 
+    return selected_account
+
+
+def main() -> None:
+    """Entry point"""
+
+    # Setup
+    config = ConfigManager("config.json")
+    
+    # Check for vendor environment variable (for subfolder support)
+    vendor_prefix = os.environ.get("vendor", "")
+    if vendor_prefix:
+        print(f"Using vendor prefix: {vendor_prefix}")
+    
+    # Get accounts from config
+    accounts = config.get_accounts()
+    
+    # Have user select which account to use
+    selected_account = get_account_selection(accounts)
+    
+    # Initialize the appropriate file manager based on the selected account
+    if selected_account.get("storageMode", "remote") == "remote":
+        # Ensure all required S3 credentials are present
+        if not all([
+            selected_account.get("awsAccessKeyId"),
+            selected_account.get("awsSecretAccessKey"),
             selected_account.get("bucket")
+        ]):
+            print("ERROR: Missing required S3 credentials in config. Check your config.json file.")
+            print(f"Required fields: awsAccessKeyId, awsSecretAccessKey, bucket")
+            print(f"Available fields: {', '.join(selected_account.keys())}")
+            sys.exit(1)
+            
+        # Initialize S3 file manager with account-specific bucket
+        file_manager = S3FileManager(
+            selected_account["awsAccessKeyId"],
+            selected_account["awsSecretAccessKey"],
+            selected_account["bucket"]
         )
-        if selected_account.get("storageMode", "remote") == "remote"
-        else LocalFileManager()
-    )
+        print(f"Initialized S3 file manager for bucket: {selected_account['bucket']}")
+    else:
+        file_manager = LocalFileManager()
+        print("Using local file manager. Files will be stored locally.")
     
     mission_name, mission_time = get_mission_details()
-    # Create mission file
+    
+    # Create mission file with proper path prefix if vendor is specified
     try:
         mission_file_key = f"MISSION/{mission_name}_{mission_time.strftime('%Y%m%d_%H%M')}Z.txt"
         
-        # Build the complete path with appropriate prefixes
-        # Priority: 1. vendor environment variable, 2. account path from config
-        path_prefix = ""
+        # Add vendor prefix if specified
         if vendor_prefix:
-            path_prefix = vendor_prefix
+            mission_file_key = f"{vendor_prefix}/{mission_file_key}"
+        # Also check for path in account config (backward compatibility)
         elif "path" in selected_account:
-            path_prefix = selected_account['path']
-            
-        if path_prefix:
-            mission_file_key = f"{path_prefix}/{mission_file_key}"
+            mission_file_key = f"{selected_account['path']}/{mission_file_key}"
         
         file_manager.upload_empty_file(mission_file_key)
-        print(f"Created mission: {mission_name}")
+        
+        # Verify that we're using the correct file manager type
+        file_manager_type = type(file_manager).__name__
+        if selected_account.get("storageMode", "remote") == "remote":
+            print(f"Created mission: {mission_name} in S3 bucket: {selected_account.get('bucket')}")
+            print(f"Mission file path: {mission_file_key}")
+        else:
+            print(f"Created mission: {mission_name} locally")
+            print(f"Using file manager: {file_manager_type}")
     except Exception as error:
         print(f"Failed to create mission: {str(error)}")
+        # Add more detailed error information
+        import traceback
+        print("\nDetailed error information:")
+        traceback.print_exc()
         sys.exit(1)
 
     mission_base_path = create_mission_scaffolding(mission_name, mission_time)
@@ -354,18 +408,30 @@ def main() -> None:
                 os.path.splitext(file_path)[1]
             )
             
-            # Build the complete path with appropriate prefixes
-            # Priority: 1. vendor environment variable, 2. account path from config
+            # Add vendor prefix if specified
             if vendor_prefix:
                 key = f"{vendor_prefix}/{key}"
+            # Also check for path in account config (backward compatibility)
             elif "path" in selected_account:
                 key = f"{selected_account['path']}/{key}"
-
+            
             print(f"Uploading {os.path.basename(file_path)}")
-            file_manager.upload_file(file_path, key)
-            print(
-                f"Successfully uploaded {os.path.basename(file_path)} as {key} to {selected_account.get('bucket', 'local storage')}"
-            )
+            try:
+                file_manager.upload_file(file_path, key)
+                
+                if isinstance(file_manager, S3FileManager):
+                    print(
+                        f"Successfully uploaded {os.path.basename(file_path)} as {key} to bucket: {selected_account.get('bucket')}"
+                    )
+                else:
+                    print(
+                        f"Successfully processed {os.path.basename(file_path)} as {key} (local storage mode)"
+                    )
+            except Exception as upload_error:
+                print(f"Error uploading file {os.path.basename(file_path)}: {str(upload_error)}")
+                # For debugging
+                import traceback
+                traceback.print_exc()
 
         except Exception as error:
             print(error)
