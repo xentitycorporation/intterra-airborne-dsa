@@ -293,11 +293,6 @@ def main() -> None:
             print(f"Using file manager: {file_manager_type}")
     except Exception as error:
         print(f"Failed to create mission: {str(error)}")
-        # Add more detailed error information
-        import traceback
-
-        print("\nDetailed error information:")
-        traceback.print_exc()
         sys.exit(1)
 
     mission_base_path = create_mission_scaffolding(mission_name, mission_time)
@@ -330,10 +325,6 @@ def main() -> None:
                 print(
                     f"Error uploading file {os.path.basename(file_path)}: {str(upload_error)}"
                 )
-                # For debugging
-                import traceback
-
-                traceback.print_exc()
 
         except Exception as error:
             print(error)

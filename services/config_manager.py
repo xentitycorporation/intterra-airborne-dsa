@@ -1,14 +1,11 @@
 """Loads and validates config.json file against a config json schema"""
 
-import locale
 import json
 import os
-from typing import Literal
-import jsonschema
 
 
 class ConfigManager:
-    """Manages configuration settings from a JSON file"""
+    """Loads and validates config.json file against a config json schema"""
 
     def __init__(self, config_file):
         """Initialize with the config file path"""
@@ -38,7 +35,7 @@ class ConfigManager:
                     "awsSecretAccessKey": self.config.get("awsSecretAccessKey"),
                     "bucket": self.config.get("bucket"),
                     "storageMode": self.config.get("storageMode", "remote"),
-                    "folder": ""
+                    "folder": "",
                 }
             ]
 
