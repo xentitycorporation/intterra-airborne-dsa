@@ -36,6 +36,7 @@ class ConfigManager:
                     "bucket": self.config.get("bucket"),
                     "storageMode": self.config.get("storageMode", "remote"),
                     "folder": "",
+                    "tailNumber": "",
                 }
             ]
 
@@ -77,6 +78,12 @@ class ConfigManager:
         if self.multi_account:
             return self.get_account(0).get("folder")
         return self.config.get("folder")
+
+    @property
+    def tailNumber(self):
+        if self.multi_account:
+            return self.get_account(0).get("tailNumber")
+        return self.config.get("tailNumber")
 
     @property
     def storage_mode(self):

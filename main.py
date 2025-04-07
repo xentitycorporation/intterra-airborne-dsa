@@ -22,15 +22,23 @@ root_directory = os.path.dirname(
 )
 
 
-def get_mission_details() -> Tuple[str, datetime]:
+def get_mission_details(tail_number: str) -> Tuple[str, datetime]:
     """Get mission name and time from input"""
 
     RESET = "\033[0m"  # Reset all formatting
     GREEN = "\033[92m"  # Green text
 
+    print(f"===========================")
+    if tail_number:
+        print(f"Example mission name: {GREEN}AZ-ASF-FIRENAME{RESET} (Tail Number: {GREEN}{tail_number}{RESET} will be added automatically appended)")
+    else:
+        print(f"Example mission name: {GREEN}AZ-ASF-FIRENAME-TAILNUMBER{RESET}")
     print(f"{GREEN}Enter Mission Name:{RESET}")
     # Replace special characters in input with a dash
     mission_name = re.sub(r"[^a-zA-Z0-9\s-]", "-", input().replace(" ", "-"))
+    if tail_number:
+        mission_name = f"{mission_name}-{tail_number}"
+
     print()
     print(f"{GREEN}Enter local time (format: YYYY-MM-DD HH:MM) [default now]:{RESET}")
     try:
@@ -50,6 +58,7 @@ def get_mission_details() -> Tuple[str, datetime]:
                 .replace(tzinfo=None)
             )
 
+        mission_name = mission_name.upper()
     except ValueError:
         print("Invalid datetime provided")
         sys.exit(1)
@@ -189,7 +198,7 @@ def get_account_selection(accounts):
             "S3" if account.get("storageMode", "remote") == "remote" else "Local"
         )
         bucket_info = (
-            f"(Bucket: {account.get('bucket', 'N/A')} Base Folder: {account.get('folder', 'N/A')})" if storage_type == "S3" else ""
+            f"({GREEN}Bucket:{RESET} {account.get('bucket', 'N/A')} {GREEN}Remote Folder:{RESET} {account.get('folder', 'N/A')} {GREEN}Tail Number:{RESET} {account.get('tailNumber', 'Not Specified')})" if storage_type == "S3" else ""
         )
         print(f"{i+1}. {account['name']} - {storage_type} {bucket_info}")
 
@@ -229,6 +238,12 @@ def get_account_selection(accounts):
 
 def main() -> None:
     """Entry point"""
+    RESET = "\033[0m"  # Reset all formatting
+    GREEN = "\033[92m"  # Green text
+
+    print("EGP Airborne DSA Edition - Version 1.0.0")
+    print("Visit https://egp.wildfire.gov for support.")
+    print()
 
     # Setup
     config = ConfigManager("config.json")
@@ -262,12 +277,12 @@ def main() -> None:
             selected_account.get("awsSecretAccessKey"),
             selected_account.get("bucket"),
         )
-        print(f"Initialized S3 file manager for bucket: {selected_account.get('bucket')}")
+        print(f"Initialized S3 file manager for bucket: {GREEN}{selected_account.get('bucket')}{RESET}")
     else:
         file_manager = LocalFileManager()
         print("Using local file manager. Files will be stored locally.")
 
-    mission_name, mission_time = get_mission_details()
+    mission_name, mission_time = get_mission_details(selected_account.get('tailNumber'))
 
     # Create mission file with proper path prefix if vendor is specified
     try:
@@ -285,11 +300,11 @@ def main() -> None:
         file_manager_type = type(file_manager).__name__
         if selected_account.get("storageMode", "remote") == "remote":
             print(
-                f"Created mission: {mission_name} in S3 bucket: {selected_account.get('bucket')}"
+                f"Created mission: {GREEN}{mission_name}{RESET} in S3 bucket: {GREEN}{selected_account.get('bucket')}{RESET}"
             )
-            print(f"Mission file path: {mission_file_key}")
+            print(f"Mission file path: {GREEN}{mission_file_key}{RESET}")
         else:
-            print(f"Created mission: {mission_name} locally")
+            print(f"Created mission: {GREEN}{mission_name}{RESET} locally")
             print(f"Using file manager: {file_manager_type}")
     except Exception as error:
         print(f"Failed to create mission: {str(error)}")
