@@ -6,13 +6,11 @@ import re
 import sys
 import os
 import time
-import glob
 from typing import Tuple
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 from models.product import Product
 from services.config_manager import ConfigManager
-
+from services.file_watcher import FileWatcher
 from services.local_file_manager import LocalFileManager
 from services.s3_file_manager import S3FileManager
 
@@ -22,47 +20,6 @@ root_directory = os.path.dirname(
     if getattr(sys, "frozen", False)
     else os.path.realpath(__file__)
 )
-
-
-# Custom event handler to replace FileWatcher if needed
-class CustomFileHandler(FileSystemEventHandler):
-    """Handles file system events and processes new files"""
-
-    def __init__(self, callback):
-        """Initialize with callback to process files"""
-        self.callback = callback
-        self.processed_files = set()
-        super().__init__()
-
-    def on_created(self, event):
-        """Process newly created files (non-directories)"""
-        if not event.is_directory:
-            self._process_file(event.src_path)
-
-    def on_modified(self, event):
-        """Process modified files (non-directories)"""
-        if not event.is_directory:
-            self._process_file(event.src_path)
-
-    def _process_file(self, file_path):
-        """Process a file if it hasn't been processed yet"""
-        if file_path in self.processed_files:
-            return
-
-        # Skip temporary/system files
-        filename = os.path.basename(file_path)
-        if filename.startswith(".") or filename.startswith("~$"):
-            return
-
-        # Wait a moment to ensure file is completely written
-        time.sleep(0.5)
-
-        # Process the file
-        try:
-            self.callback(file_path)
-            self.processed_files.add(file_path)
-        except Exception as e:
-            print(f"Error processing file {file_path}: {str(e)}")
 
 
 def get_mission_details() -> Tuple[str, datetime]:
@@ -202,88 +159,6 @@ def get_product_s3_key(mission_name: str, product: Product, file_extension: str)
         product_subtype = "Video"
 
     return f"{folder}/{product.timestamp.strftime('%Y%m%d_%H%M%SZ')}_{mission_name}_{product_subtype}{file_extension}"
-
-
-def manual_file_polling(mission_base_path, upload_product):
-    """Fallback method using manual polling instead of watchdog"""
-    import glob
-
-    print(f"Using manual polling for {mission_base_path}")
-    processed_files = set()
-
-    try:
-        while True:
-            # Find all files in the mission directory
-            all_files = []
-            for ext in [
-                "*.jpg",
-                "*.jpeg",
-                "*.png",
-                "*.tif",
-                "*.mp4",
-                "*.txt",
-                "*.json",
-            ]:
-                all_files.extend(
-                    glob.glob(
-                        os.path.join(mission_base_path, "**", ext), recursive=True
-                    )
-                )
-
-            # Process new files
-            for file_path in all_files:
-                if file_path not in processed_files:
-                    processed_files.add(file_path)
-                    # Only process files that have existed for at least 1 second
-                    if time.time() - os.path.getmtime(file_path) > 1:
-                        upload_product(file_path)
-
-            time.sleep(2)  # Check every 2 seconds
-    except KeyboardInterrupt:
-        pass
-
-
-def monitor_directory(directory, callback):
-    """
-    Monitor directory for new files using simple polling
-
-    Args:
-        directory: Directory to monitor
-        callback: Function to call when new file is detected
-    """
-    processed_files = set()
-    print(f"Watching for new files in {directory}")
-    print()
-
-    try:
-        while True:
-            # Find all files in the directory
-            all_files = []
-            for root, _, files in os.walk(directory):
-                for file in files:
-                    all_files.append(os.path.join(root, file))
-
-            # Process new files
-            for file_path in all_files:
-                if file_path not in processed_files:
-                    # Only process if file appears stable (not being written to)
-                    try:
-                        # Get initial size
-                        initial_size = os.path.getsize(file_path)
-                        # Wait a moment
-                        time.sleep(0.5)
-                        # Check if size changed
-                        if initial_size == os.path.getsize(file_path):
-                            processed_files.add(file_path)
-                            callback(file_path)
-                    except Exception as e:
-                        # File might be in use or deleted
-                        pass
-
-            # Sleep to avoid high CPU usage
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Stopping file monitoring")
 
 
 def get_account_selection(accounts):
@@ -465,23 +340,20 @@ def main() -> None:
 
     # Set up file monitoring for mission folder
     print(f"Setting up file monitoring for {mission_base_path}")
-    try:
-        # Try using watchdog first
-        observer = Observer()
-        handler = CustomFileHandler(upload_product)
-        observer.schedule(handler, mission_base_path, recursive=True)
-        observer.start()
+    file_watcher = FileWatcher(upload_product)
+    observer = Observer()
+    observer.schedule(file_watcher, mission_base_path, recursive=True)
+    observer.start()
 
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            observer.stop()
-        observer.join()
-    except Exception as e:
-        print(f"Error with watchdog: {e}")
-        print("Falling back to manual polling method")
-        monitor_directory(mission_base_path, upload_product)
+    print(f"Watching for new files in ${mission_base_path}")
+    print()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
 
 
 if __name__ == "__main__":
