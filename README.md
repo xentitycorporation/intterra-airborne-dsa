@@ -26,7 +26,7 @@ For running locally, add "storageMode": "local" to config.json
 
 ## Generating build
 
-- `pyinstaller main.py --onefile -n airborne-dsa`
+- `pyinstaller main.py --onefile --version-file=build_version.txt -n egp-airborne-dsa`
 
 ## Running unit tests
 

@@ -1,49 +1,92 @@
 """Loads and validates config.json file against a config json schema"""
-import locale
+
 import json
-from typing import Literal
-import jsonschema
+import os
+
 
 class ConfigManager:
     """Loads and validates config.json file against a config json schema"""
 
-    def __init__(self, file_path: str) -> None:
-        config_schema = {
-            "type": "object",
-            "properties": {
-                "bucket": {"type": "string"},
-                "awsAccessKeyId": {"type": "string"},
-                "awsSecretAccessKey": {"type": "string"},
-                "storageMode": {"type": "string", "enum": ["local", "remote"]},
-            },
-            "required": ["bucket", "awsAccessKeyId", "awsSecretAccessKey"],
-            "additionalProperties": False,
-        }
+    def __init__(self, config_file):
+        """Initialize with the config file path"""
+        self.config_file = config_file
+        self.load_config()
 
-        with open(
-            file_path, "r", encoding=locale.getpreferredencoding()
-        ) as config_file:
-            self.config = json.load(config_file)
-            jsonschema.validate(instance=self.config, schema=config_schema)
+    def load_config(self):
+        """Load the configuration from the JSON file"""
+        # Make sure the config file exists
+        if not os.path.exists(self.config_file):
+            raise FileNotFoundError(f"Config file not found: {self.config_file}")
+
+        # Load the JSON config file
+        with open(self.config_file, "r", encoding="utf-8") as f:
+            self.config = json.load(f)
+
+        # Check if it's a multi-account config
+        if "accounts" in self.config:
+            self.multi_account = True
+        else:
+            # For backwards compatibility, treat as a single account
+            self.multi_account = False
+            self.accounts = [
+                {
+                    "name": "Default",
+                    "awsAccessKeyId": self.config.get("awsAccessKeyId"),
+                    "awsSecretAccessKey": self.config.get("awsSecretAccessKey"),
+                    "bucket": self.config.get("bucket"),
+                    "storageMode": self.config.get("storageMode", "remote"),
+                    "folder": "",
+                    "tailNumber": "",
+                }
+            ]
+
+    def get_accounts(self):
+        """Get list of available accounts"""
+        if self.multi_account:
+            return self.config["accounts"]
+        else:
+            return self.accounts
+
+    def get_account(self, index):
+        """Get a specific account by index"""
+        accounts = self.get_accounts()
+        if 0 <= index < len(accounts):
+            return accounts[index]
+        raise IndexError("Account index out of range")
+
+    # Legacy properties for backward compatibility
+    @property
+    def aws_access_key_id(self):
+        if self.multi_account:
+            return self.get_account(0).get("awsAccessKeyId")
+        return self.config.get("awsAccessKeyId")
 
     @property
-    def bucket(self) -> str:
-        """The bucket to upload to"""
-        return self.config["bucket"]
+    def aws_secret_access_key(self):
+        if self.multi_account:
+            return self.get_account(0).get("awsSecretAccessKey")
+        return self.config.get("awsSecretAccessKey")
 
     @property
-    def aws_access_key_id(self) -> str:
-        """Your AWS access key"""
-        return self.config["awsAccessKeyId"]
+    def bucket(self):
+        if self.multi_account:
+            return self.get_account(0).get("bucket")
+        return self.config.get("bucket")
 
     @property
-    def aws_secret_access_key(self) -> str:
-        """Your AWS secret key"""
-        return self.config["awsSecretAccessKey"]
+    def folder(self):
+        if self.multi_account:
+            return self.get_account(0).get("folder")
+        return self.config.get("folder")
 
     @property
-    def storage_mode(self) -> Literal["local", "remote"]:
-        """Whether to use local or remote storage"""
-        return (
-            "remote" if "storageMode" not in self.config else self.config["storageMode"]
-        )
+    def tailNumber(self):
+        if self.multi_account:
+            return self.get_account(0).get("tailNumber")
+        return self.config.get("tailNumber")
+
+    @property
+    def storage_mode(self):
+        if self.multi_account:
+            return self.get_account(0).get("storageMode", "remote")
+        return self.config.get("storageMode", "remote")

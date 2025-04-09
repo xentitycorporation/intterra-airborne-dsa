@@ -10,12 +10,9 @@ from typing import Tuple
 from watchdog.observers import Observer
 from models.product import Product
 from services.config_manager import ConfigManager
-
 from services.file_watcher import FileWatcher
 from services.local_file_manager import LocalFileManager
 from services.s3_file_manager import S3FileManager
-
-# from airborne_dsa.config_manager import ConfigManager
 
 # If running from executable file, path is determined differently
 root_directory = os.path.dirname(
@@ -25,15 +22,23 @@ root_directory = os.path.dirname(
 )
 
 
-def get_mission_details() -> Tuple[str, datetime]:
+def get_mission_details(tail_number: str) -> Tuple[str, datetime]:
     """Get mission name and time from input"""
 
     RESET = "\033[0m"  # Reset all formatting
     GREEN = "\033[92m"  # Green text
 
+    print(f"===========================")
+    if tail_number:
+        print(f"Example mission name: {GREEN}AZ-ASF-FIRENAME{RESET} (Tail Number: {GREEN}{tail_number}{RESET} will be added automatically appended)")
+    else:
+        print(f"Example mission name: {GREEN}AZ-ASF-FIRENAME-TAILNUMBER{RESET}")
     print(f"{GREEN}Enter Mission Name:{RESET}")
     # Replace special characters in input with a dash
     mission_name = re.sub(r"[^a-zA-Z0-9\s-]", "-", input().replace(" ", "-"))
+    if tail_number:
+        mission_name = f"{mission_name}-{tail_number}"
+
     print()
     print(f"{GREEN}Enter local time (format: YYYY-MM-DD HH:MM) [default now]:{RESET}")
     try:
@@ -53,6 +58,7 @@ def get_mission_details() -> Tuple[str, datetime]:
                 .replace(tzinfo=None)
             )
 
+        mission_name = mission_name.upper()
     except ValueError:
         print("Invalid datetime provided")
         sys.exit(1)
@@ -164,26 +170,142 @@ def get_product_s3_key(mission_name: str, product: Product, file_extension: str)
     return f"{folder}/{product.timestamp.strftime('%Y%m%d_%H%M%SZ')}_{mission_name}_{product_subtype}{file_extension}"
 
 
+def get_account_selection(accounts):
+    """Prompt user to select an account"""
+    RESET = "\033[0m"  # Reset all formatting
+    GREEN = "\033[92m"  # Green text
+    YELLOW = "\033[93m"  # Yellow text for warnings
+
+    # Check if there are any accounts with proper remote storage configuration
+    remote_accounts = [
+        a
+        for a in accounts
+        if isinstance(a, dict) and a.get("storageMode", "remote") == "remote"
+    ]
+
+    if not remote_accounts:
+        print(
+            f"{YELLOW}Warning: No properly configured remote accounts found in config.{RESET}"
+        )
+        print(
+            f"{YELLOW}Files will be stored locally. Check your config.json file.{RESET}"
+        )
+        print()
+
+    print(f"{GREEN}Select an account to upload data:{RESET}")
+    for i, account in enumerate(accounts):
+        storage_type = (
+            "S3" if account.get("storageMode", "remote") == "remote" else "Local"
+        )
+        bucket_info = (
+            f"({GREEN}Bucket:{RESET} {account.get('bucket', 'N/A')} {GREEN}Remote Folder:{RESET} {account.get('folder', 'N/A')} {GREEN}Tail Number:{RESET} {account.get('tailNumber', 'Not Specified')})" if storage_type == "S3" else ""
+        )
+        print(f"{i+1}. {account['name']} - {storage_type} {bucket_info}")
+
+    # Get user selection
+    selected_account_index = 0  # Default to first account
+    if len(accounts) > 1:
+        while True:
+            try:
+                selection = int(input("Enter account number: ")) - 1
+                if 0 <= selection < len(accounts):
+                    selected_account_index = selection
+                    break
+                else:
+                    print("Invalid selection. Please try again.")
+            except ValueError:
+                print("Please enter a number.")
+
+    selected_account = accounts[selected_account_index]
+
+    # Show detailed information about selected account
+    print(f"{GREEN}Selected account:{RESET} {selected_account.get('name')}")
+    storage_mode = selected_account.get("storageMode", "remote")
+    if storage_mode == "remote":
+        bucket = selected_account.get("bucket")
+        if bucket:
+            print(f"Files will be uploaded to S3 bucket: {bucket}")
+        else:
+            print(
+                f"{YELLOW}Warning: No bucket specified for this account. Check config.json.{RESET}"
+            )
+    else:
+        print("Files will be stored locally (no S3 upload)")
+    print()
+
+    return selected_account
+
+
 def main() -> None:
     """Entry point"""
+    RESET = "\033[0m"  # Reset all formatting
+    GREEN = "\033[92m"  # Green text
+
+    print("EGP Airborne DSA Edition - Version 1.0.0")
+    print("Visit https://egp.wildfire.gov for support.")
+    print()
 
     # Setup
     config = ConfigManager("config.json")
-    file_manager = (
-        S3FileManager(
-            config.aws_access_key_id, config.aws_secret_access_key, config.bucket
-        )
-        if config.storage_mode == "remote"
-        else LocalFileManager()
-    )
 
-    mission_name, mission_time = get_mission_details()
-    # Create mission file
+    # Get accounts from config
+    accounts = config.get_accounts()
+
+    # Have user select which account to use
+    selected_account = get_account_selection(accounts)
+
+    # Initialize the appropriate file manager based on the selected account
+    if selected_account.get("storageMode", "remote") == "remote":
+        # Ensure all required S3 credentials are present
+        if not all(
+            [
+                selected_account.get("awsAccessKeyId"),
+                selected_account.get("awsSecretAccessKey"),
+                selected_account.get("bucket"),
+            ]
+        ):
+            print(
+                "ERROR: Missing required S3 credentials in config. Check your config.json file."
+            )
+            print(f"Required fields: awsAccessKeyId, awsSecretAccessKey, bucket")
+            print(f"Available fields: {', '.join(selected_account.keys())}")
+            sys.exit(1)
+
+        # Initialize S3 file manager with account-specific bucket
+        file_manager = S3FileManager(
+            selected_account.get("awsAccessKeyId"),
+            selected_account.get("awsSecretAccessKey"),
+            selected_account.get("bucket"),
+        )
+        print(f"Initialized S3 file manager for bucket: {GREEN}{selected_account.get('bucket')}{RESET}")
+    else:
+        file_manager = LocalFileManager()
+        print("Using local file manager. Files will be stored locally.")
+
+    mission_name, mission_time = get_mission_details(selected_account.get('tailNumber'))
+
+    # Create mission file with proper path prefix if vendor is specified
     try:
-        file_manager.upload_empty_file(
+        mission_file_key = (
             f"MISSION/{mission_name}_{mission_time.strftime('%Y%m%d_%H%M')}Z.txt"
         )
-        print(f"Created mission: {mission_name}")
+
+        # Add vendor prefix if specified
+        if selected_account.get('folder'):
+            mission_file_key = f"{selected_account.get('folder')}/{mission_file_key}"
+
+        file_manager.upload_empty_file(mission_file_key)
+
+        # Verify that we're using the correct file manager type
+        file_manager_type = type(file_manager).__name__
+        if selected_account.get("storageMode", "remote") == "remote":
+            print(
+                f"Created mission: {GREEN}{mission_name}{RESET} in S3 bucket: {GREEN}{selected_account.get('bucket')}{RESET}"
+            )
+            print(f"Mission file path: {GREEN}{mission_file_key}{RESET}")
+        else:
+            print(f"Created mission: {GREEN}{mission_name}{RESET} locally")
+            print(f"Using file manager: {file_manager_type}")
     except Exception as error:
         print(f"Failed to create mission: {str(error)}")
         sys.exit(1)
@@ -198,16 +320,32 @@ def main() -> None:
                 mission_name, product, os.path.splitext(file_path)[1]
             )
 
+            # Add vendor prefix if specified
+            if selected_account.get('folder'):
+                key = f"{selected_account.get('folder')}/{key}"
+
             print(f"Uploading {os.path.basename(file_path)}")
-            file_manager.upload_file(file_path, key)
-            print(
-                f"Successfully uploaded {os.path.basename(file_path)} as {key} to {config.bucket}"
-            )
+            try:
+                file_manager.upload_file(file_path, key)
+
+                if isinstance(file_manager, S3FileManager):
+                    print(
+                        f"Successfully uploaded {os.path.basename(file_path)} as {key} to bucket: {selected_account.get('bucket')}"
+                    )
+                else:
+                    print(
+                        f"Successfully processed {os.path.basename(file_path)} as {key} (local storage mode)"
+                    )
+            except Exception as upload_error:
+                print(
+                    f"Error uploading file {os.path.basename(file_path)}: {str(upload_error)}"
+                )
 
         except Exception as error:
             print(error)
 
-    # Scan mission folder for new files
+    # Set up file monitoring for mission folder
+    print(f"Setting up file monitoring for {mission_base_path}")
     file_watcher = FileWatcher(upload_product)
     observer = Observer()
     observer.schedule(file_watcher, mission_base_path, recursive=True)
