@@ -25,8 +25,18 @@ Data shipping script for airborne products
 For running locally, add "storageMode": "local" to config.json
 
 ## Generating build
-
 - `pyinstaller main.py --onefile --version-file=build_version.txt -n egp-airborne-dsa`
+
+### Adding an Icon to the Executable (Optional)
+
+To add an icon to the generated executable:
+
+1. Prepare an `.ico` file for your application.
+2. Add the `--icon=<path_to_icon_file>` option to the `pyinstaller` command:
+    ```bash
+    pyinstaller main.py --onefile --version-file=build_version.txt --icon=<path_to_icon_file> -n egp-airborne-dsa
+    ```
+    Replace `<path_to_icon_file>` with the path to your `.ico` file.
 
 ## Running unit tests
 
